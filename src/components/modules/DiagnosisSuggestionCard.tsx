@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, type RefObject } from 'react';
@@ -9,12 +10,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { suggestDiagnosis, type SuggestDiagnosisOutput } from '@/ai/flows/suggest-diagnosis';
+import { addHistoryEvent } from '@/lib/db'; // Importar
 import { Loader2, Brain, Lightbulb, Trash2 } from 'lucide-react';
 
 interface DiagnosisSuggestionCardProps {
   initialClinicalData?: string;
   cardRef: RefObject<HTMLDivElement>;
 }
+
+const truncateTextForHistory = (text: string, maxLength = 150) => {
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength) + "...";
+};
 
 export function DiagnosisSuggestionCard({ initialClinicalData, cardRef }: DiagnosisSuggestionCardProps) {
   const [clinicalData, setClinicalData] = useState(initialClinicalData || "");
@@ -26,7 +33,7 @@ export function DiagnosisSuggestionCard({ initialClinicalData, cardRef }: Diagno
   useEffect(() => {
     if (initialClinicalData) {
       setClinicalData(initialClinicalData);
-      setDiagnosisResult(null); // Clear previous results when new data is received
+      setDiagnosisResult(null); 
       setError(null);
     }
   }, [initialClinicalData]);
@@ -52,6 +59,22 @@ export function DiagnosisSuggestionCard({ initialClinicalData, cardRef }: Diagno
         title: "Sugerencias Generadas",
         description: "Las sugerencias de diagnóstico han sido generadas exitosamente.",
       });
+
+      // Registrar evento en el historial
+      let outputSummary = "No se generaron sugerencias.";
+      if (result && result.length > 0) {
+        const mainDiagnosis = result[0];
+        outputSummary = `${result.length} sugerencia(s). Principal: ${mainDiagnosis.description} (${mainDiagnosis.code} - ${(mainDiagnosis.confidence * 100).toFixed(0)}%)`;
+      }
+
+      await addHistoryEvent({
+        module: "Diagnóstico Inteligente",
+        action: "Diagnósticos Sugeridos",
+        inputSummary: truncateTextForHistory(clinicalData),
+        outputSummary: truncateTextForHistory(outputSummary, 200),
+        details: { inputTextLength: clinicalData.length, suggestions: result }
+      });
+
     } catch (err) {
       console.error("Error suggesting diagnosis:", err);
       const errorMessage = err instanceof Error ? err.message : "Ocurrió un error desconocido.";

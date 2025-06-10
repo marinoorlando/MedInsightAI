@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useRef, type ChangeEvent, type RefObject } from 'react';
+import { useState, useRef, type ChangeEvent } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,11 +10,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { extractInformationFromPdf, type ExtractInformationFromPdfOutput } from '@/ai/flows/extract-information-from-pdf';
 import { fileToDataUri, getFileSize } from '@/lib/utils';
+import { addHistoryEvent } from '@/lib/db'; // Importar
 import { Upload, Trash2, Loader2, FileText, Send } from 'lucide-react';
 
 interface PdfDataExtractionCardProps {
   onTextExtracted: (notes: string) => void;
 }
+
+const truncateNotes = (notes: string, maxLength = 150) => {
+  if (notes.length <= maxLength) return notes;
+  return notes.substring(0, maxLength) + "...";
+};
 
 export function PdfDataExtractionCard({ onTextExtracted }: PdfDataExtractionCardProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -65,6 +71,22 @@ export function PdfDataExtractionCard({ onTextExtracted }: PdfDataExtractionCard
         title: "Extracción Completa",
         description: "Los datos del PDF han sido extraídos exitosamente.",
       });
+
+      // Registrar evento en el historial
+      await addHistoryEvent({
+        module: "Extracción de Datos de PDF",
+        action: "PDF Extraído",
+        inputSummary: selectedFile.name,
+        outputSummary: result.clinicalNotes ? truncateNotes(result.clinicalNotes) : "No se extrajeron notas.",
+        details: { 
+            fileName: selectedFile.name, 
+            medications: result.medications,
+            allergies: result.allergies,
+            diagnoses: result.diagnoses,
+            clinicalNotesPreview: truncateNotes(result.clinicalNotes, 500)
+        }
+      });
+
     } catch (err) {
       console.error("Error extracting from PDF:", err);
       const errorMessage = err instanceof Error ? err.message : "Ocurrió un error desconocido.";

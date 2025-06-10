@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { summarizeClinicalNotes, type SummarizeClinicalNotesOutput } from '@/ai/flows/summarize-clinical-notes';
+import { addHistoryEvent } from '@/lib/db'; // Importar
 import { Loader2, ClipboardPenLine, Play, Trash2, Copy, SendToBack } from 'lucide-react';
 
 interface ClinicalNoteSummarizationCardProps {
@@ -15,6 +16,11 @@ interface ClinicalNoteSummarizationCardProps {
   cardRef: RefObject<HTMLDivElement>;
   onSummaryReadyForDiagnosis: (summary: string) => void;
 }
+
+const truncateTextForHistory = (text: string, maxLength = 150) => {
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength) + "...";
+};
 
 export function ClinicalNoteSummarizationCard({ initialText, cardRef, onSummaryReadyForDiagnosis }: ClinicalNoteSummarizationCardProps) {
   const [notes, setNotes] = useState(initialText || "");
@@ -52,6 +58,16 @@ export function ClinicalNoteSummarizationCard({ initialText, cardRef, onSummaryR
         title: "Resumen Generado",
         description: "El resumen de las notas clínicas ha sido generado exitosamente.",
       });
+
+      // Registrar evento en el historial
+      await addHistoryEvent({
+        module: "Comprensión de Texto Clínico",
+        action: "Notas Resumidas",
+        inputSummary: truncateTextForHistory(notes),
+        outputSummary: result.summary ? truncateTextForHistory(result.summary) : "No se generó resumen.",
+        details: { inputTextLength: notes.length, summaryTextLength: result.summary?.length || 0 }
+      });
+
     } catch (err) {
       console.error("Error summarizing notes:", err);
       const errorMessage = err instanceof Error ? err.message : "Ocurrió un error desconocido.";

@@ -8,6 +8,7 @@ import { MedicalImageAnalysisCard } from '@/components/modules/MedicalImageAnaly
 import { PdfDataExtractionCard } from '@/components/modules/PdfDataExtractionCard';
 import { ClinicalNoteSummarizationCard } from '@/components/modules/ClinicalNoteSummarizationCard';
 import { DiagnosisSuggestionCard } from '@/components/modules/DiagnosisSuggestionCard';
+import { HistoryLogCard } from '@/components/modules/HistoryLogCard'; // Importar el nuevo componente
 
 export default function HomePage() {
   const [textForSummarization, setTextForSummarization] = useState<string | undefined>(undefined);
@@ -60,6 +61,12 @@ export default function HomePage() {
             cardRef={diagnosisCardRef}
           />
         </div>
+        
+        {/* Nueva sección para el historial */}
+        <div className="mt-12 md:mt-16">
+           <HistoryLogCard />
+        </div>
+
       </main>
       <Footer />
     </div>
