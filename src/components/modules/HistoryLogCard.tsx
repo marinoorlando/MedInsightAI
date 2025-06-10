@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { db, clearHistory, getAllHistoryEvents, importHistory, type HistoryEvent } from '@/lib/db';
 import { History, Trash2, ListChecks, FileText, Brain, ScanSearch, MessageSquareText, UploadCloud, DownloadCloud } from 'lucide-react';
 import { format } from 'date-fns';
@@ -22,9 +23,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
 
-const truncateText = (text: string | undefined, maxLength: number = 100): string => {
+const truncateTextForDisplay = (text: string | undefined, maxLength: number = 100): string => {
   if (!text) return 'N/A';
   if (text.length <= maxLength) return text;
   return text.substring(0, maxLength) + '...';
@@ -36,7 +37,19 @@ const getModuleIcon = (moduleName: string) => {
   if (moduleName.includes("Texto Clínico")) return <MessageSquareText className="h-4 w-4 mr-2 text-indigo-600" />;
   if (moduleName.includes("Diagnóstico")) return <Brain className="h-4 w-4 mr-2 text-purple-600" />;
   return <ListChecks className="h-4 w-4 mr-2" />;
-}
+};
+
+const getConfidenceBadgeVariant = (confidence: number): "destructive" | "secondary" | "default" => {
+  if (confidence < 0.4) return "destructive";
+  if (confidence < 0.7) return "secondary";
+  return "default";
+};
+
+const getConfidenceBadgeColor = (confidence: number) => {
+  if (confidence < 0.4) return 'bg-red-500 hover:bg-red-600';
+  if (confidence < 0.7) return 'bg-yellow-500 hover:bg-yellow-600';
+  return 'bg-green-500 hover:bg-green-600';
+};
 
 export function HistoryLogCard() {
   const historyEvents = useLiveQuery(
@@ -118,7 +131,6 @@ export function HistoryLogCard() {
             variant: "destructive"
           });
         } finally {
-          // Reset file input to allow re-selection of the same file
           if(importFileRef.current) importFileRef.current.value = "";
         }
       };
@@ -148,6 +160,38 @@ export function HistoryLogCard() {
       setEventsToImport([]);
     }
   };
+
+  const renderAdditionalDetails = (event: HistoryEvent) => {
+    const detailsToRender: Record<string, any> = { ...event.details };
+
+    if (event.module === "Análisis de Imágenes Médicas" || event.module === "Extracción de Datos de PDF") {
+      delete detailsToRender.fileName; // Already in inputSummary
+      delete detailsToRender.fileSize;
+      delete detailsToRender.contentType;
+    }
+    if (event.module === "Diagnóstico Inteligente") {
+      delete detailsToRender.suggestions; // Rendered as table
+      delete detailsToRender.inputTextLength;
+    }
+     if (event.module === "Comprensión de Texto Clínico") {
+      delete detailsToRender.inputTextLength;
+      delete detailsToRender.summaryTextLength;
+    }
+
+
+    if (Object.keys(detailsToRender).length === 0) {
+      return <p className="text-xs text-muted-foreground mt-1">No hay detalles adicionales.</p>;
+    }
+
+    return (
+      <>
+        <h6 className="font-medium text-xs mt-2 mb-1">Detalles Adicionales:</h6>
+        <pre className="p-2 bg-muted/50 rounded text-xs overflow-auto max-h-48">
+          {JSON.stringify(detailsToRender, null, 2)}
+        </pre>
+      </>
+    );
+  }
 
 
   return (
@@ -191,35 +235,80 @@ export function HistoryLogCard() {
             <ScrollArea className="h-[400px] pr-4">
               <div className="space-y-4">
                 {historyEvents.map((event) => (
-                  <div key={event.id} className="p-3 border rounded-md bg-card/50 shadow-sm">
-                    <div className="flex justify-between items-start mb-1">
-                      <div className="flex items-center">
-                        {getModuleIcon(event.module)}
-                        <span className="font-semibold text-sm">{event.module} - {event.action}</span>
+                  <details key={event.id} className="p-3 border rounded-md bg-card/50 shadow-sm group">
+                    <summary className="cursor-pointer list-none">
+                      <div className="flex justify-between items-start mb-1">
+                        <div className="flex items-center">
+                          {getModuleIcon(event.module)}
+                          <span className="font-semibold text-sm">{event.module} - {event.action}</span>
+                        </div>
+                        <Badge variant="outline" className="text-xs">
+                          {format(new Date(event.timestamp), "dd MMM yyyy, HH:mm:ss", { locale: es })}
+                        </Badge>
                       </div>
-                      <Badge variant="outline" className="text-xs">
-                        {format(new Date(event.timestamp), "dd MMM yyyy, HH:mm:ss", { locale: es })}
-                      </Badge>
+                      {event.inputSummary && (
+                        <p className="text-xs text-muted-foreground">
+                          <span className="font-medium">Entrada:</span> {truncateTextForDisplay(event.inputSummary, 70)}
+                        </p>
+                      )}
+                      {event.outputSummary && (
+                        <p className="text-xs text-muted-foreground">
+                          <span className="font-medium">Resultado:</span> {truncateTextForDisplay(event.outputSummary, 100)}
+                        </p>
+                      )}
+                       <div className="text-xs mt-1 text-primary group-open:hidden">Mostrar Detalles</div>
+                       <div className="text-xs mt-1 text-primary hidden group-open:block">Ocultar Detalles</div>
+                    </summary>
+                    <div className="mt-2 pt-2 border-t">
+                      {event.inputSummary && (
+                        <div className="mb-2">
+                          <h6 className="font-medium text-xs mb-0.5">Información de Entrada Completa:</h6>
+                          <div className="text-xs p-2 bg-muted/30 rounded whitespace-pre-wrap break-words max-h-60 overflow-y-auto">
+                            {event.inputSummary}
+                          </div>
+                        </div>
+                      )}
+                      {event.outputSummary && (
+                        <div className="mb-2">
+                          <h6 className="font-medium text-xs mb-0.5">Resultado Completo:</h6>
+                          {event.module === "Diagnóstico Inteligente" && event.details?.suggestions ? (
+                            <div className="max-h-60 overflow-y-auto">
+                              <Table className="text-xs">
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead className="h-8 px-2">Código</TableHead>
+                                    <TableHead className="h-8 px-2">Descripción</TableHead>
+                                    <TableHead className="h-8 px-2 text-right">Confianza</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {(event.details.suggestions as any[]).map((diag, index) => (
+                                    <TableRow key={index}>
+                                      <TableCell className="font-medium py-1 px-2">{diag.code}</TableCell>
+                                      <TableCell className="py-1 px-2">{diag.description}</TableCell>
+                                      <TableCell className="py-1 px-2 text-right">
+                                        <Badge 
+                                          variant={getConfidenceBadgeVariant(diag.confidence)} 
+                                          className={`${getConfidenceBadgeColor(diag.confidence)} text-xs px-1.5 py-0.5`}
+                                        >
+                                          {(diag.confidence * 100).toFixed(0)}%
+                                        </Badge>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          ) : (
+                            <div className="text-xs p-2 bg-muted/30 rounded whitespace-pre-wrap break-words max-h-60 overflow-y-auto">
+                              {event.outputSummary}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {renderAdditionalDetails(event)}
                     </div>
-                    {event.inputSummary && (
-                      <p className="text-xs text-muted-foreground">
-                        <span className="font-medium">Entrada:</span> {truncateText(event.inputSummary, 70)}
-                      </p>
-                    )}
-                    {event.outputSummary && (
-                      <p className="text-xs text-muted-foreground">
-                        <span className="font-medium">Resultado:</span> {truncateText(event.outputSummary, 100)}
-                      </p>
-                    )}
-                     {event.details && Object.keys(event.details).length > 0 && (
-                        <details className="text-xs mt-1">
-                            <summary className="cursor-pointer text-muted-foreground hover:text-foreground">Mostrar/Ocultar Detalles</summary>
-                            <pre className="mt-1 p-2 bg-muted/50 rounded text-xs overflow-auto max-h-48">
-                                {JSON.stringify(event.details, null, 2)}
-                            </pre>
-                        </details>
-                    )}
-                  </div>
+                  </details>
                 ))}
               </div>
             </ScrollArea>

@@ -10,17 +10,12 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { analyzeMedicalImage, type AnalyzeMedicalImageOutput } from '@/ai/flows/analyze-medical-image';
 import { fileToDataUri, getFileSize } from '@/lib/utils';
-import { addHistoryEvent } from '@/lib/db'; // Importar
+import { addHistoryEvent } from '@/lib/db';
 import { Upload, Trash2, Loader2, ScanSearch, FileImage, Send } from 'lucide-react';
 
 interface MedicalImageAnalysisCardProps {
   onAnalysisReady: (summary: string) => void;
 }
-
-const truncateSummary = (summary: string, maxLength = 150) => {
-  if (summary.length <= maxLength) return summary;
-  return summary.substring(0, maxLength) + "...";
-};
 
 export function MedicalImageAnalysisCard({ onAnalysisReady }: MedicalImageAnalysisCardProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -75,13 +70,16 @@ export function MedicalImageAnalysisCard({ onAnalysisReady }: MedicalImageAnalys
         description: "La imagen médica ha sido analizada exitosamente.",
       });
 
-      // Registrar evento en el historial
       await addHistoryEvent({
         module: "Análisis de Imágenes Médicas",
         action: "Imagen Analizada",
-        inputSummary: selectedFile.name,
-        outputSummary: result.summary ? truncateSummary(result.summary) : "No se generó resumen.",
-        details: { fileName: selectedFile.name, resultSummary: result.summary }
+        inputSummary: selectedFile.name, // Input completo
+        outputSummary: result.summary || "No se generó resumen.", // Output completo
+        details: { 
+          fileName: selectedFile.name, 
+          fileSize: getFileSize(selectedFile.size),
+          contentType: selectedFile.type,
+        }
       });
 
     } catch (err) {

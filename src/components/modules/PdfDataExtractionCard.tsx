@@ -10,17 +10,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { extractInformationFromPdf, type ExtractInformationFromPdfOutput } from '@/ai/flows/extract-information-from-pdf';
 import { fileToDataUri, getFileSize } from '@/lib/utils';
-import { addHistoryEvent } from '@/lib/db'; // Importar
+import { addHistoryEvent } from '@/lib/db';
 import { Upload, Trash2, Loader2, FileText, Send } from 'lucide-react';
 
 interface PdfDataExtractionCardProps {
   onTextExtracted: (notes: string) => void;
 }
-
-const truncateNotes = (notes: string, maxLength = 150) => {
-  if (notes.length <= maxLength) return notes;
-  return notes.substring(0, maxLength) + "...";
-};
 
 export function PdfDataExtractionCard({ onTextExtracted }: PdfDataExtractionCardProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -72,18 +67,18 @@ export function PdfDataExtractionCard({ onTextExtracted }: PdfDataExtractionCard
         description: "Los datos del PDF han sido extraídos exitosamente.",
       });
 
-      // Registrar evento en el historial
       await addHistoryEvent({
         module: "Extracción de Datos de PDF",
         action: "PDF Extraído",
-        inputSummary: selectedFile.name,
-        outputSummary: result.clinicalNotes ? truncateNotes(result.clinicalNotes) : "No se extrajeron notas.",
+        inputSummary: selectedFile.name, // Input completo
+        outputSummary: result.clinicalNotes || "No se extrajeron notas clínicas.", // Output completo
         details: { 
-            fileName: selectedFile.name, 
+            fileName: selectedFile.name,
+            fileSize: getFileSize(selectedFile.size),
+            contentType: selectedFile.type,
             medications: result.medications,
             allergies: result.allergies,
             diagnoses: result.diagnoses,
-            clinicalNotesPreview: truncateNotes(result.clinicalNotes, 500)
         }
       });
 

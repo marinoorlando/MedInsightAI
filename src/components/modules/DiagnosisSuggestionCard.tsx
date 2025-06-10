@@ -10,18 +10,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { suggestDiagnosis, type SuggestDiagnosisOutput } from '@/ai/flows/suggest-diagnosis';
-import { addHistoryEvent } from '@/lib/db'; // Importar
+import { addHistoryEvent } from '@/lib/db';
 import { Loader2, Brain, Lightbulb, Trash2 } from 'lucide-react';
 
 interface DiagnosisSuggestionCardProps {
   initialClinicalData?: string;
   cardRef: RefObject<HTMLDivElement>;
 }
-
-const truncateTextForHistory = (text: string, maxLength = 150) => {
-  if (text.length <= maxLength) return text;
-  return text.substring(0, maxLength) + "...";
-};
 
 export function DiagnosisSuggestionCard({ initialClinicalData, cardRef }: DiagnosisSuggestionCardProps) {
   const [clinicalData, setClinicalData] = useState(initialClinicalData || "");
@@ -60,19 +55,21 @@ export function DiagnosisSuggestionCard({ initialClinicalData, cardRef }: Diagno
         description: "Las sugerencias de diagnóstico han sido generadas exitosamente.",
       });
 
-      // Registrar evento en el historial
-      let outputSummary = "No se generaron sugerencias.";
+      let historyOutputSummary = "No se generaron sugerencias.";
       if (result && result.length > 0) {
-        const mainDiagnosis = result[0];
-        outputSummary = `${result.length} sugerencia(s). Principal: ${mainDiagnosis.description} (${mainDiagnosis.code} - ${(mainDiagnosis.confidence * 100).toFixed(0)}%)`;
+        const mainDiagnosis = result.sort((a,b) => b.confidence - a.confidence)[0];
+        historyOutputSummary = `${result.length} sugerencia(s) generada(s). Principal: ${mainDiagnosis.description} (${mainDiagnosis.code} - ${(mainDiagnosis.confidence * 100).toFixed(0)}%).`;
       }
 
       await addHistoryEvent({
         module: "Diagnóstico Inteligente",
         action: "Diagnósticos Sugeridos",
-        inputSummary: truncateTextForHistory(clinicalData),
-        outputSummary: truncateTextForHistory(outputSummary, 200),
-        details: { inputTextLength: clinicalData.length, suggestions: result }
+        inputSummary: clinicalData, // Input completo
+        outputSummary: historyOutputSummary, // Output completo (string descriptivo)
+        details: { 
+          inputTextLength: clinicalData.length, 
+          suggestions: result // El array completo de sugerencias
+        }
       });
 
     } catch (err) {
