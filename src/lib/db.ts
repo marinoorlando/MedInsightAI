@@ -8,7 +8,7 @@ export interface HistoryEvent {
   action: string;
   inputSummary?: string;
   outputSummary?: string;
-  details?: any; 
+  details?: any;
 }
 
 export class AppDB extends Dexie {
@@ -32,11 +32,10 @@ export async function addHistoryEvent(event: Omit<HistoryEvent, 'id' | 'timestam
     });
   } catch (error) {
     console.error("Failed to add history event:", error);
-    // Podrías considerar notificar al usuario aquí si es crítico
   }
 }
 
-export async function getAllHistoryEvents() {
+export async function getAllHistoryEvents(): Promise<HistoryEvent[]> {
   try {
     return await db.historyEvents.orderBy('timestamp').reverse().toArray();
   } catch (error) {
@@ -50,5 +49,23 @@ export async function clearHistory() {
     await db.historyEvents.clear();
   } catch (error) {
     console.error("Failed to clear history:", error);
+  }
+}
+
+export async function importHistory(events: Partial<HistoryEvent>[], mode: 'replace' | 'append'): Promise<void> {
+  try {
+    const eventsToImport = events.map(event => ({
+      ...event,
+      id: undefined, // Ensure Dexie auto-generates IDs
+      timestamp: new Date(event.timestamp || Date.now()), // Convert string timestamp to Date
+    }));
+
+    if (mode === 'replace') {
+      await clearHistory();
+    }
+    await db.historyEvents.bulkAdd(eventsToImport as HistoryEvent[]);
+  } catch (error) {
+    console.error("Failed to import history events:", error);
+    throw error; // Re-throw to be caught by the calling function for user notification
   }
 }
