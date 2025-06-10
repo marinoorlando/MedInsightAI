@@ -7,14 +7,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { summarizeClinicalNotes, type SummarizeClinicalNotesOutput } from '@/ai/flows/summarize-clinical-notes';
-import { Loader2, ClipboardPenLine, Play, Trash2, Copy } from 'lucide-react';
+import { Loader2, ClipboardPenLine, Play, Trash2, Copy, SendToBack } from 'lucide-react';
 
 interface ClinicalNoteSummarizationCardProps {
   initialNotes?: string;
   cardRef: RefObject<HTMLDivElement>;
+  onSummaryReadyForDiagnosis: (summary: string) => void;
 }
 
-export function ClinicalNoteSummarizationCard({ initialNotes, cardRef }: ClinicalNoteSummarizationCardProps) {
+export function ClinicalNoteSummarizationCard({ initialNotes, cardRef, onSummaryReadyForDiagnosis }: ClinicalNoteSummarizationCardProps) {
   const [notes, setNotes] = useState(initialNotes || "");
   const [summaryResult, setSummaryResult] = useState<SummarizeClinicalNotesOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -24,7 +25,7 @@ export function ClinicalNoteSummarizationCard({ initialNotes, cardRef }: Clinica
   useEffect(() => {
     if (initialNotes) {
       setNotes(initialNotes);
-      setSummaryResult(null); // Clear previous summary when new notes are received
+      setSummaryResult(null); 
       setError(null);
     }
   }, [initialNotes]);
@@ -83,6 +84,13 @@ export function ClinicalNoteSummarizationCard({ initialNotes, cardRef }: Clinica
     }
   };
 
+  const handleSendSummaryToDiagnosis = () => {
+    if (summaryResult?.summary) {
+      onSummaryReadyForDiagnosis(summaryResult.summary);
+      toast({ title: "Resumen Enviado", description: "El resumen ha sido enviado a Diagnóstico Inteligente." });
+    }
+  };
+
   return (
     <Card ref={cardRef} className="shadow-lg hover:shadow-xl transition-shadow duration-300">
       <CardHeader>
@@ -131,6 +139,14 @@ export function ClinicalNoteSummarizationCard({ initialNotes, cardRef }: Clinica
               </Button>
             </div>
             <p className="text-sm whitespace-pre-wrap">{summaryResult.summary}</p>
+            <Button 
+              onClick={handleSendSummaryToDiagnosis} 
+              variant="outline" 
+              className="w-full mt-3"
+              disabled={!summaryResult.summary}
+            >
+              <SendToBack className="mr-2 h-4 w-4" /> Usar Resumen para Diagnóstico Inteligente
+            </Button>
           </div>
         )}
       </CardContent>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect, type RefObject } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,12 +11,25 @@ import { useToast } from "@/hooks/use-toast";
 import { suggestDiagnosis, type SuggestDiagnosisOutput } from '@/ai/flows/suggest-diagnosis';
 import { Loader2, Brain, Lightbulb, Trash2 } from 'lucide-react';
 
-export function DiagnosisSuggestionCard() {
-  const [clinicalData, setClinicalData] = useState("");
+interface DiagnosisSuggestionCardProps {
+  initialClinicalData?: string;
+  cardRef: RefObject<HTMLDivElement>;
+}
+
+export function DiagnosisSuggestionCard({ initialClinicalData, cardRef }: DiagnosisSuggestionCardProps) {
+  const [clinicalData, setClinicalData] = useState(initialClinicalData || "");
   const [diagnosisResult, setDiagnosisResult] = useState<SuggestDiagnosisOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (initialClinicalData) {
+      setClinicalData(initialClinicalData);
+      setDiagnosisResult(null); // Clear previous results when new data is received
+      setError(null);
+    }
+  }, [initialClinicalData]);
 
   const handleSuggest = async () => {
     if (!clinicalData.trim()) {
@@ -66,14 +79,14 @@ export function DiagnosisSuggestionCard() {
   };
   
   const getConfidenceBadgeColor = (confidence: number) => {
-    if (confidence < 0.4) return 'bg-red-500 hover:bg-red-600'; // Destructive
-    if (confidence < 0.7) return 'bg-yellow-500 hover:bg-yellow-600'; // Warning/Secondary
-    return 'bg-green-500 hover:bg-green-600'; // Success/Default
+    if (confidence < 0.4) return 'bg-red-500 hover:bg-red-600'; 
+    if (confidence < 0.7) return 'bg-yellow-500 hover:bg-yellow-600'; 
+    return 'bg-green-500 hover:bg-green-600'; 
   };
 
 
   return (
-    <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+    <Card ref={cardRef} className="shadow-lg hover:shadow-xl transition-shadow duration-300">
       <CardHeader>
         <div className="flex items-center gap-3 mb-2">
           <Brain className="h-8 w-8 text-primary" />

@@ -10,15 +10,24 @@ import { DiagnosisSuggestionCard } from '@/components/modules/DiagnosisSuggestio
 
 export default function HomePage() {
   const [extractedNotes, setExtractedNotes] = useState<string | undefined>(undefined);
+  const [summaryForDiagnosis, setSummaryForDiagnosis] = useState<string | undefined>(undefined);
+
   const summarizationCardRef = useRef<HTMLDivElement>(null);
   const pdfExtractionCardRef = useRef<HTMLDivElement>(null);
+  const diagnosisCardRef = useRef<HTMLDivElement>(null);
 
 
   const handleNotesExtracted = (notes: string, elementRefToScrollFrom?: React.RefObject<HTMLDivElement>) => {
     setExtractedNotes(notes);
-    // Ensure the scroll happens after the state update has likely re-rendered the component
     setTimeout(() => {
         summarizationCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  };
+
+  const handleSummaryReadyForDiagnosis = (summary: string) => {
+    setSummaryForDiagnosis(summary);
+    setTimeout(() => {
+      diagnosisCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 100);
   };
 
@@ -34,9 +43,13 @@ export default function HomePage() {
           />
           <ClinicalNoteSummarizationCard 
             initialNotes={extractedNotes} 
-            cardRef={summarizationCardRef} 
+            cardRef={summarizationCardRef}
+            onSummaryReadyForDiagnosis={handleSummaryReadyForDiagnosis}
           />
-          <DiagnosisSuggestionCard />
+          <DiagnosisSuggestionCard 
+            initialClinicalData={summaryForDiagnosis}
+            cardRef={diagnosisCardRef}
+          />
         </div>
       </main>
       <Footer />
