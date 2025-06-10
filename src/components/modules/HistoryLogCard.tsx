@@ -25,6 +25,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
 
 const truncateTextForDisplay = (text: string | undefined, maxLength: number = 100): string => {
   if (!text) return 'N/A';
@@ -483,3 +490,4 @@ export function HistoryLogCard() {
     </>
   );
 }
+
