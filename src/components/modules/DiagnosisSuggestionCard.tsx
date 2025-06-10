@@ -8,10 +8,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox"; // Importar Checkbox
 import { useToast } from "@/hooks/use-toast";
 import { suggestDiagnosis, type SuggestDiagnosisOutput } from '@/ai/flows/suggest-diagnosis';
 import { addHistoryEvent } from '@/lib/db';
-import { Loader2, Brain, Lightbulb, Trash2 } from 'lucide-react';
+import { Loader2, Brain, Lightbulb, Trash2, Star } from 'lucide-react'; // Importar Star
 
 interface DiagnosisSuggestionCardProps {
   initialClinicalData?: string;
@@ -25,11 +26,16 @@ export function DiagnosisSuggestionCard({ initialClinicalData, cardRef }: Diagno
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
+  const [selectedPrincipalCode, setSelectedPrincipalCode] = useState<string | null>(null);
+  const [confirmedDiagnoses, setConfirmedDiagnoses] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     if (initialClinicalData) {
       setClinicalData(initialClinicalData);
       setDiagnosisResult(null); 
       setError(null);
+      setSelectedPrincipalCode(null);
+      setConfirmedDiagnoses(new Set());
     }
   }, [initialClinicalData]);
 
@@ -46,6 +52,8 @@ export function DiagnosisSuggestionCard({ initialClinicalData, cardRef }: Diagno
     setIsLoading(true);
     setError(null);
     setDiagnosisResult(null);
+    setSelectedPrincipalCode(null);
+    setConfirmedDiagnoses(new Set());
 
     try {
       const result = await suggestDiagnosis({ clinicalData });
@@ -64,11 +72,11 @@ export function DiagnosisSuggestionCard({ initialClinicalData, cardRef }: Diagno
       await addHistoryEvent({
         module: "Diagnóstico Inteligente",
         action: "Diagnósticos Sugeridos",
-        inputSummary: clinicalData, // Input completo
-        outputSummary: historyOutputSummary, // Output completo (string descriptivo)
+        inputSummary: clinicalData,
+        outputSummary: historyOutputSummary,
         details: { 
           inputTextLength: clinicalData.length, 
-          suggestions: result // El array completo de sugerencias
+          suggestions: result 
         }
       });
 
@@ -90,6 +98,8 @@ export function DiagnosisSuggestionCard({ initialClinicalData, cardRef }: Diagno
     setClinicalData("");
     setDiagnosisResult(null);
     setError(null);
+    setSelectedPrincipalCode(null);
+    setConfirmedDiagnoses(new Set());
   };
 
   const getConfidenceBadgeVariant = (confidence: number): "destructive" | "secondary" | "default" => {
@@ -104,6 +114,21 @@ export function DiagnosisSuggestionCard({ initialClinicalData, cardRef }: Diagno
     return 'bg-green-500 hover:bg-green-600'; 
   };
 
+  const handleSetPrincipal = (code: string) => {
+    setSelectedPrincipalCode(current => current === code ? null : code); // Permite deseleccionar si se hace clic de nuevo
+  };
+
+  const handleToggleConfirmed = (code: string) => {
+    setConfirmedDiagnoses(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(code)) {
+        newSet.delete(code);
+      } else {
+        newSet.add(code);
+      }
+      return newSet;
+    });
+  };
 
   return (
     <Card ref={cardRef} className="shadow-lg hover:shadow-xl transition-shadow duration-300">
@@ -113,7 +138,7 @@ export function DiagnosisSuggestionCard({ initialClinicalData, cardRef }: Diagno
           <CardTitle className="font-headline text-xl">Diagnóstico Inteligente</CardTitle>
         </div>
         <CardDescription>
-          Ingresa datos clínicos consolidados para recibir sugerencias de diagnósticos (CIE-10) con puntajes de confianza.
+          Ingresa datos clínicos consolidados para recibir sugerencias de diagnósticos (CIE-10) con puntajes de confianza. Selecciona el principal y confirma los relevantes.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -150,20 +175,41 @@ export function DiagnosisSuggestionCard({ initialClinicalData, cardRef }: Diagno
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[80px] text-center">Principal</TableHead>
                   <TableHead>Código</TableHead>
                   <TableHead>Descripción</TableHead>
                   <TableHead className="text-right">Confianza</TableHead>
+                  <TableHead className="w-[100px] text-center">Confirmar</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {diagnosisResult.map((diag, index) => (
-                  <TableRow key={index}>
+                  <TableRow key={index} className={confirmedDiagnoses.has(diag.code) ? 'bg-green-100 dark:bg-green-900/30' : ''}>
+                    <TableCell className="text-center">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleSetPrincipal(diag.code)}
+                        aria-label={`Marcar ${diag.code} como principal`}
+                        className={`hover:text-amber-500 ${selectedPrincipalCode === diag.code ? 'text-amber-500' : 'text-muted-foreground'}`}
+                      >
+                        <Star className={selectedPrincipalCode === diag.code ? 'fill-amber-500' : ''} />
+                      </Button>
+                    </TableCell>
                     <TableCell className="font-medium">{diag.code}</TableCell>
                     <TableCell>{diag.description}</TableCell>
                     <TableCell className="text-right">
                        <Badge variant={getConfidenceBadgeVariant(diag.confidence)} className={getConfidenceBadgeColor(diag.confidence)}>
                         {(diag.confidence * 100).toFixed(0)}%
                        </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Checkbox
+                        checked={confirmedDiagnoses.has(diag.code)}
+                        onCheckedChange={() => handleToggleConfirmed(diag.code)}
+                        id={`confirmed-${diag.code}-${index}`}
+                        aria-label={`Confirmar diagnóstico ${diag.code}`}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}
