@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { suggestDiagnosis, type SuggestDiagnosisOutput } from '@/ai/flows/suggest-diagnosis';
 import { addHistoryEvent } from '@/lib/db';
-import { Loader2, Brain, Lightbulb, Trash2, Star } from 'lucide-react';
+import { Loader2, Brain, Lightbulb, Trash2, Star, Save } from 'lucide-react';
 
 interface DiagnosisSuggestionCardProps {
   initialClinicalData?: string;
@@ -28,10 +28,12 @@ export function DiagnosisSuggestionCard({ initialClinicalData, cardRef }: Diagno
 
   const [selectedPrincipalCode, setSelectedPrincipalCode] = useState<string | null>(null);
   const [confirmedDiagnoses, setConfirmedDiagnoses] = useState<Set<string>>(new Set());
+  const [hasSavedThisInteraction, setHasSavedThisInteraction] = useState(false);
 
   useEffect(() => {
     if (initialClinicalData) {
       setClinicalData(initialClinicalData);
+      // No se reinician los resultados ni se inicia análisis automáticamente.
     }
   }, [initialClinicalData]);
 
@@ -49,7 +51,8 @@ export function DiagnosisSuggestionCard({ initialClinicalData, cardRef }: Diagno
     setError(null);
     setDiagnosisResult(null); 
     setSelectedPrincipalCode(null); 
-    setConfirmedDiagnoses(new Set()); 
+    setConfirmedDiagnoses(new Set());
+    setHasSavedThisInteraction(false); // Reiniciar estado de guardado para la nueva interacción
 
     try {
       const result = await suggestDiagnosis({ clinicalData });
@@ -58,24 +61,7 @@ export function DiagnosisSuggestionCard({ initialClinicalData, cardRef }: Diagno
         title: "Sugerencias Generadas",
         description: "Las sugerencias de diagnóstico han sido generadas exitosamente.",
       });
-
-      let historyOutputSummary = "No se generaron sugerencias.";
-      if (result && result.length > 0) {
-        const mainDiagnosis = result.sort((a,b) => b.confidence - a.confidence)[0];
-        historyOutputSummary = `${result.length} sugerencia(s) generada(s). Principal: ${mainDiagnosis.description} (${mainDiagnosis.code} - ${(mainDiagnosis.confidence * 100).toFixed(0)}%).`;
-      }
-
-      await addHistoryEvent({
-        module: "Diagnóstico Inteligente",
-        action: "Diagnósticos Sugeridos",
-        inputSummary: clinicalData,
-        outputSummary: historyOutputSummary,
-        details: { 
-          inputTextLength: clinicalData.length, 
-          suggestions: result 
-        }
-      });
-
+      // La llamada a addHistoryEvent se elimina de aquí. Se hará manualmente.
     } catch (err) {
       console.error("Error suggesting diagnosis:", err);
       const errorMessage = err instanceof Error ? err.message : "Ocurrió un error desconocido.";
@@ -90,12 +76,58 @@ export function DiagnosisSuggestionCard({ initialClinicalData, cardRef }: Diagno
     }
   };
 
+  const handleSaveToHistory = async () => {
+    if (!diagnosisResult || diagnosisResult.length === 0) {
+      toast({
+        title: "Sin sugerencias",
+        description: "No hay sugerencias para guardar en el historial.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    let historyOutputSummary = `${diagnosisResult.length} sugerencia(s) generada(s).`;
+    const principalDiagnosis = diagnosisResult.find(d => d.code === selectedPrincipalCode);
+    if (principalDiagnosis) {
+      historyOutputSummary = `Principal: ${principalDiagnosis.description} (${principalDiagnosis.code} - ${(principalDiagnosis.confidence * 100).toFixed(0)}%). `;
+    }
+    historyOutputSummary += `${confirmedDiagnoses.size}/${diagnosisResult.length} diagnósticos confirmados.`;
+
+    try {
+      await addHistoryEvent({
+        module: "Diagnóstico Inteligente",
+        action: "Interacción de Diagnóstico Guardada",
+        inputSummary: clinicalData,
+        outputSummary: historyOutputSummary,
+        details: { 
+          inputTextLength: clinicalData.length, 
+          originalSuggestions: diagnosisResult,
+          selectedPrincipalCode: selectedPrincipalCode,
+          confirmedDiagnoses: Array.from(confirmedDiagnoses) 
+        }
+      });
+      setHasSavedThisInteraction(true);
+      toast({
+        title: "Guardado en Historial",
+        description: "La interacción de diagnóstico ha sido guardada en el historial.",
+      });
+    } catch (err) {
+      console.error("Error saving diagnosis interaction to history:", err);
+      toast({
+        title: "Error al Guardar",
+        description: "No se pudo guardar la interacción en el historial.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleClear = () => {
     setClinicalData("");
     setDiagnosisResult(null);
     setError(null);
     setSelectedPrincipalCode(null);
     setConfirmedDiagnoses(new Set());
+    setHasSavedThisInteraction(false);
   };
 
   const getConfidenceBadgeVariant = (confidence: number): "destructive" | "secondary" | "default" => {
@@ -112,11 +144,8 @@ export function DiagnosisSuggestionCard({ initialClinicalData, cardRef }: Diagno
 
   const handleSetPrincipal = (code: string) => {
     if (selectedPrincipalCode === code) {
-      // Desmarcando el principal actual
       setSelectedPrincipalCode(null);
-      // No se reordena al desmarcar, el orden se mantiene como está.
     } else {
-      // Marcando un nuevo principal (o cambiando de principal)
       setSelectedPrincipalCode(code);
       if (diagnosisResult) {
         const newOrderedResults = [...diagnosisResult];
@@ -128,6 +157,7 @@ export function DiagnosisSuggestionCard({ initialClinicalData, cardRef }: Diagno
         }
       }
     }
+    setHasSavedThisInteraction(false); // Permitir guardar de nuevo si se cambia el principal
   };
 
   const handleToggleConfirmed = (code: string) => {
@@ -140,6 +170,7 @@ export function DiagnosisSuggestionCard({ initialClinicalData, cardRef }: Diagno
       }
       return newSet;
     });
+    setHasSavedThisInteraction(false); // Permitir guardar de nuevo si se cambia una confirmación
   };
 
   return (
@@ -150,7 +181,7 @@ export function DiagnosisSuggestionCard({ initialClinicalData, cardRef }: Diagno
           <CardTitle className="font-headline text-xl">Diagnóstico Inteligente</CardTitle>
         </div>
         <CardDescription>
-          Ingresa datos clínicos consolidados para recibir sugerencias de diagnósticos (CIE-10) con puntajes de confianza. Selecciona el principal y confirma los relevantes.
+          Ingresa datos clínicos consolidados para recibir sugerencias de diagnósticos (CIE-10). Selecciona el principal, confirma los relevantes y guarda en el historial.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -159,7 +190,10 @@ export function DiagnosisSuggestionCard({ initialClinicalData, cardRef }: Diagno
           <Textarea
             id="clinical-data"
             value={clinicalData}
-            onChange={(e) => setClinicalData(e.target.value)}
+            onChange={(e) => {
+              setClinicalData(e.target.value);
+              setHasSavedThisInteraction(false); // Si cambia el texto de entrada, permitir nuevo guardado
+            }}
             placeholder="Ingresa aquí el resumen de notas, síntomas clave, historial relevante, etc."
             rows={8}
             className="min-h-[150px]"
@@ -196,7 +230,10 @@ export function DiagnosisSuggestionCard({ initialClinicalData, cardRef }: Diagno
               </TableHeader>
               <TableBody>
                 {diagnosisResult.map((diag, index) => (
-                  <TableRow key={`${diag.code}-${index}`} className={confirmedDiagnoses.has(diag.code) ? 'bg-green-100 dark:bg-green-900/30' : ''}>
+                  <TableRow 
+                    key={`${diag.code}-${index}`} 
+                    className={`${confirmedDiagnoses.has(diag.code) ? 'bg-green-100 dark:bg-green-900/30' : ''} ${selectedPrincipalCode === diag.code ? 'ring-2 ring-amber-500' : ''}`}
+                  >
                     <TableCell className="text-center">
                       <Button
                         variant="ghost"
@@ -240,6 +277,14 @@ export function DiagnosisSuggestionCard({ initialClinicalData, cardRef }: Diagno
         <Button onClick={handleSuggest} disabled={!clinicalData.trim() || isLoading} className="w-full sm:w-auto flex-grow">
           <Lightbulb className="mr-2 h-4 w-4" /> Sugerir Diagnósticos
         </Button>
+        <Button 
+          onClick={handleSaveToHistory} 
+          disabled={isLoading || !diagnosisResult || diagnosisResult.length === 0 || hasSavedThisInteraction} 
+          className="w-full sm:w-auto"
+          variant="outline"
+        >
+          <Save className="mr-2 h-4 w-4" /> Guardar en Historial
+        </Button>
         <Button variant="outline" onClick={handleClear} disabled={isLoading} className="w-full sm:w-auto">
           <Trash2 className="mr-2 h-4 w-4" /> Limpiar Datos
         </Button>
@@ -247,3 +292,4 @@ export function DiagnosisSuggestionCard({ initialClinicalData, cardRef }: Diagno
     </Card>
   );
 }
+

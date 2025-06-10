@@ -3,13 +3,13 @@
 
 import { useRef, useState, type ChangeEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { db, clearHistory, getAllHistoryEvents, importHistory, type HistoryEvent, deleteHistoryEvent } from '@/lib/db';
-import { History, Trash2, ListChecks, FileText, Brain, ScanSearch, MessageSquareText, UploadCloud, DownloadCloud } from 'lucide-react';
+import { History, Trash2, ListChecks, FileText, Brain, ScanSearch, MessageSquareText, UploadCloud, DownloadCloud, Star, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
@@ -140,7 +140,12 @@ export function HistoryLogCard() {
           const content = e.target?.result as string;
           const parsedEvents = JSON.parse(content);
           if (Array.isArray(parsedEvents) && parsedEvents.every(item => typeof item === 'object' && item.module && item.action && item.timestamp)) {
-            setEventsToImport(parsedEvents);
+            // Convert timestamps back to Date objects if they are strings
+            const eventsWithDateObjects = parsedEvents.map(ev => ({
+              ...ev,
+              timestamp: new Date(ev.timestamp) 
+            }));
+            setEventsToImport(eventsWithDateObjects);
             setShowImportConfirmDialog(true);
           } else {
             toast({
@@ -196,7 +201,9 @@ export function HistoryLogCard() {
       delete detailsToRender.contentType;
     }
     if (event.module === "Diagnóstico Inteligente") {
-      delete detailsToRender.suggestions; 
+      delete detailsToRender.originalSuggestions;
+      delete detailsToRender.selectedPrincipalCode;
+      delete detailsToRender.confirmedDiagnoses;
       delete detailsToRender.inputTextLength;
     }
      if (event.module === "Comprensión de Texto Clínico") {
@@ -205,16 +212,33 @@ export function HistoryLogCard() {
     }
 
 
-    if (Object.keys(detailsToRender).length === 0) {
+    if (Object.keys(detailsToRender).length === 0 && event.module !== "Diagnóstico Inteligente") { // Allow empty for Diagnosis to show principal/confirmed
       return <p className="text-xs text-muted-foreground mt-1">No hay detalles adicionales.</p>;
     }
+    
+    const principalCode = event.details?.selectedPrincipalCode;
+    const confirmedCodes = event.details?.confirmedDiagnoses || [];
 
     return (
       <>
-        <h6 className="font-medium text-xs mt-2 mb-1">Detalles Adicionales:</h6>
-        <pre className="p-2 bg-muted/50 rounded text-xs overflow-auto max-h-48">
-          {JSON.stringify(detailsToRender, null, 2)}
-        </pre>
+        {principalCode && (
+            <p className="text-xs text-muted-foreground mt-1">
+                <span className="font-medium text-amber-600 dark:text-amber-400 inline-flex items-center"><Star className="h-3 w-3 mr-1 fill-amber-500" /> Diagnóstico Principal Seleccionado:</span> {principalCode}
+            </p>
+        )}
+        {confirmedCodes.length > 0 && (
+             <p className="text-xs text-muted-foreground mt-1">
+                <span className="font-medium text-green-600 dark:text-green-400 inline-flex items-center"><CheckCircle className="h-3 w-3 mr-1 fill-green-500" /> Diagnósticos Confirmados:</span> {confirmedCodes.join(', ')}
+            </p>
+        )}
+        {Object.keys(detailsToRender).length > 0 && (
+          <>
+            <h6 className="font-medium text-xs mt-2 mb-1">Otros Detalles:</h6>
+            <pre className="p-2 bg-muted/50 rounded text-xs overflow-auto max-h-48">
+              {JSON.stringify(detailsToRender, null, 2)}
+            </pre>
+          </>
+        )}
       </>
     );
   }
@@ -253,7 +277,7 @@ export function HistoryLogCard() {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleClearHistory}>Sí, Limpiar Historial</AlertDialogAction>
+                      <AlertDialogAction onClick={handleClearHistory} className={buttonVariants({ variant: "destructive" })}>Sí, Limpiar Historial</AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
@@ -294,13 +318,13 @@ export function HistoryLogCard() {
                             {format(new Date(event.timestamp), "dd MMM yyyy, HH:mm:ss", { locale: es })}
                           </Badge>
                           {event.id && (
-                            <AlertDialog>
+                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <Button
                                   variant="ghost"
                                   size="icon"
                                   className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                                  onClick={(e) => {e.stopPropagation(); handleInitiateDeleteEvent(event)}}
+                                  onClick={(e) => {e.stopPropagation(); e.preventDefault(); handleInitiateDeleteEvent(event)}}
                                 >
                                   <Trash2 className="h-4 w-4" />
                                   <span className="sr-only">Eliminar evento</span>
@@ -335,19 +359,50 @@ export function HistoryLogCard() {
                       {event.outputSummary && (
                         <div className="mb-2">
                           <h6 className="font-medium text-xs mb-0.5">Resultado Completo:</h6>
-                          {event.module === "Diagnóstico Inteligente" && event.details?.suggestions ? (
+                          {event.module === "Diagnóstico Inteligente" && event.details?.originalSuggestions ? (
                             <div className="max-h-60 overflow-y-auto">
                               <Table className="text-xs">
                                 <TableHeader>
                                   <TableRow>
+                                    <TableHead className="h-8 px-2">Estatus</TableHead>
                                     <TableHead className="h-8 px-2">Código</TableHead>
                                     <TableHead className="h-8 px-2">Descripción</TableHead>
                                     <TableHead className="h-8 px-2 text-right">Confianza</TableHead>
                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                  {(event.details.suggestions as any[]).map((diag, index) => (
-                                    <TableRow key={index}>
+                                  {(event.details.originalSuggestions as any[]).map((diag, index) => (
+                                    <TableRow key={index} className={
+                                      `${event.details.confirmedDiagnoses?.includes(diag.code) ? 'bg-green-100 dark:bg-green-900/20' : ''} ${event.details.selectedPrincipalCode === diag.code ? 'ring-1 ring-amber-500' : ''}`
+                                    }>
+                                      <TableCell className="py-1 px-2">
+                                        <div className="flex items-center space-x-1">
+                                          {event.details.selectedPrincipalCode === diag.code && (
+                                            <TooltipProvider>
+                                              <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                  <Star className="h-3 w-3 text-amber-500 fill-amber-500" />
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                  <p>Principal</p>
+                                                </TooltipContent>
+                                              </Tooltip>
+                                            </TooltipProvider>
+                                          )}
+                                          {event.details.confirmedDiagnoses?.includes(diag.code) && (
+                                            <TooltipProvider>
+                                              <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                  <CheckCircle className="h-3 w-3 text-green-600 fill-green-500" />
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                  <p>Confirmado</p>
+                                                </TooltipContent>
+                                              </Tooltip>
+                                            </TooltipProvider>
+                                          )}
+                                        </div>
+                                      </TableCell>
                                       <TableCell className="font-medium py-1 px-2">{diag.code}</TableCell>
                                       <TableCell className="py-1 px-2">{diag.description}</TableCell>
                                       <TableCell className="py-1 px-2 text-right">
@@ -378,7 +433,6 @@ export function HistoryLogCard() {
             </ScrollArea>
           )}
         </CardContent>
-        {/* CardFooter ya no es necesario para el botón de limpiar historial */}
       </Card>
 
       <AlertDialog open={showImportConfirmDialog} onOpenChange={setShowImportConfirmDialog}>
