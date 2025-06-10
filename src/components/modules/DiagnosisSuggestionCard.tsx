@@ -32,10 +32,6 @@ export function DiagnosisSuggestionCard({ initialClinicalData, cardRef }: Diagno
   useEffect(() => {
     if (initialClinicalData) {
       setClinicalData(initialClinicalData);
-      // Ya no se resetean los otros estados aquí (diagnosisResult, error, etc.).
-      // El usuario debe presionar "Sugerir Diagnósticos" explícitamente
-      // para obtener nuevas sugerencias basadas en el nuevo clinicalData.
-      // Los resultados anteriores, si los hay, permanecerán.
     }
   }, [initialClinicalData]);
 
@@ -51,9 +47,9 @@ export function DiagnosisSuggestionCard({ initialClinicalData, cardRef }: Diagno
 
     setIsLoading(true);
     setError(null);
-    setDiagnosisResult(null); // Limpiar resultados anteriores antes de una nueva sugerencia
-    setSelectedPrincipalCode(null); // Limpiar selección de principal
-    setConfirmedDiagnoses(new Set()); // Limpiar confirmaciones
+    setDiagnosisResult(null); 
+    setSelectedPrincipalCode(null); 
+    setConfirmedDiagnoses(new Set()); 
 
     try {
       const result = await suggestDiagnosis({ clinicalData });
@@ -115,7 +111,23 @@ export function DiagnosisSuggestionCard({ initialClinicalData, cardRef }: Diagno
   };
 
   const handleSetPrincipal = (code: string) => {
-    setSelectedPrincipalCode(current => current === code ? null : code); 
+    if (selectedPrincipalCode === code) {
+      // Desmarcando el principal actual
+      setSelectedPrincipalCode(null);
+      // No se reordena al desmarcar, el orden se mantiene como está.
+    } else {
+      // Marcando un nuevo principal (o cambiando de principal)
+      setSelectedPrincipalCode(code);
+      if (diagnosisResult) {
+        const newOrderedResults = [...diagnosisResult];
+        const selectedIndex = newOrderedResults.findIndex(diag => diag.code === code);
+        if (selectedIndex > -1) {
+          const [selectedItem] = newOrderedResults.splice(selectedIndex, 1);
+          newOrderedResults.unshift(selectedItem);
+          setDiagnosisResult(newOrderedResults);
+        }
+      }
+    }
   };
 
   const handleToggleConfirmed = (code: string) => {
@@ -184,7 +196,7 @@ export function DiagnosisSuggestionCard({ initialClinicalData, cardRef }: Diagno
               </TableHeader>
               <TableBody>
                 {diagnosisResult.map((diag, index) => (
-                  <TableRow key={index} className={confirmedDiagnoses.has(diag.code) ? 'bg-green-100 dark:bg-green-900/30' : ''}>
+                  <TableRow key={`${diag.code}-${index}`} className={confirmedDiagnoses.has(diag.code) ? 'bg-green-100 dark:bg-green-900/30' : ''}>
                     <TableCell className="text-center">
                       <Button
                         variant="ghost"
