@@ -7,11 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { extractInformationFromPdf, type ExtractInformationFromPdfOutput } from '@/ai/flows/extract-information-from-pdf';
 import { fileToDataUri, getFileSize } from '@/lib/utils';
 import { addHistoryEvent } from '@/lib/db';
-import { Upload, Trash2, Loader2, FileText, Send } from 'lucide-react';
+import { Upload, Trash2, Loader2, FileText, Send, Save } from 'lucide-react';
 
 interface PdfDataExtractionCardProps {
   onTextExtracted: (notes: string) => void;
@@ -24,6 +25,8 @@ export function PdfDataExtractionCard({ onTextExtracted }: PdfDataExtractionCard
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const [autoSaveToHistory, setAutoSaveToHistory] = useState(false);
+  const [hasSavedThisInteraction, setHasSavedThisInteraction] = useState(false);
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -41,6 +44,38 @@ export function PdfDataExtractionCard({ onTextExtracted }: PdfDataExtractionCard
       setSelectedFile(file);
       setExtractionResult(null);
       setError(null);
+      setHasSavedThisInteraction(false);
+    }
+  };
+
+  const saveToHistory = async () => {
+    if (!selectedFile || !extractionResult) return;
+    try {
+      await addHistoryEvent({
+        module: "Extracción de Datos de PDF",
+        action: "PDF Extraído",
+        inputSummary: selectedFile.name,
+        outputSummary: extractionResult.clinicalNotes || "No se extrajeron notas clínicas.",
+        details: {
+            fileName: selectedFile.name,
+            fileSize: getFileSize(selectedFile.size),
+            contentType: selectedFile.type,
+            medications: extractionResult.medications,
+            allergies: extractionResult.allergies,
+            diagnoses: extractionResult.diagnoses,
+        }
+      });
+      toast({
+        title: "Guardado en Historial",
+        description: "La extracción del PDF ha sido guardada en el historial.",
+      });
+      setHasSavedThisInteraction(true);
+    } catch (err) {
+       toast({
+        title: "Error al Guardar",
+        description: "No se pudo guardar la extracción del PDF en el historial.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -57,6 +92,7 @@ export function PdfDataExtractionCard({ onTextExtracted }: PdfDataExtractionCard
     setIsLoading(true);
     setError(null);
     setExtractionResult(null);
+    setHasSavedThisInteraction(false);
 
     try {
       const dataUri = await fileToDataUri(selectedFile);
@@ -67,20 +103,9 @@ export function PdfDataExtractionCard({ onTextExtracted }: PdfDataExtractionCard
         description: "Los datos del PDF han sido extraídos exitosamente.",
       });
 
-      await addHistoryEvent({
-        module: "Extracción de Datos de PDF",
-        action: "PDF Extraído",
-        inputSummary: selectedFile.name, // Input completo
-        outputSummary: result.clinicalNotes || "No se extrajeron notas clínicas.", // Output completo
-        details: { 
-            fileName: selectedFile.name,
-            fileSize: getFileSize(selectedFile.size),
-            contentType: selectedFile.type,
-            medications: result.medications,
-            allergies: result.allergies,
-            diagnoses: result.diagnoses,
-        }
-      });
+      if (autoSaveToHistory) {
+        await saveToHistory();
+      }
 
     } catch (err) {
       console.error("Error extracting from PDF:", err);
@@ -100,6 +125,7 @@ export function PdfDataExtractionCard({ onTextExtracted }: PdfDataExtractionCard
     setSelectedFile(null);
     setExtractionResult(null);
     setError(null);
+    setHasSavedThisInteraction(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -200,10 +226,24 @@ export function PdfDataExtractionCard({ onTextExtracted }: PdfDataExtractionCard
           </div>
         )}
       </CardContent>
-      <CardFooter>
+      <CardFooter className="flex flex-col gap-3">
         <Button onClick={handleAnalyze} disabled={!selectedFile || isLoading} className="w-full">
           <Upload className="mr-2 h-4 w-4" /> Analizar Documento
         </Button>
+        {!autoSaveToHistory && extractionResult && !hasSavedThisInteraction && (
+          <Button onClick={saveToHistory} variant="outline" className="w-full" disabled={isLoading}>
+            <Save className="mr-2 h-4 w-4" /> Guardar en Historial
+          </Button>
+        )}
+        <div className="flex items-center space-x-2 self-start pt-2">
+          <Switch
+            id={`auto-save-pdf-${Date.now()}`}
+            checked={autoSaveToHistory}
+            onCheckedChange={setAutoSaveToHistory}
+            disabled={isLoading}
+          />
+          <Label htmlFor={`auto-save-pdf-${Date.now()}`} className="text-sm">Guardado Automático en Historial</Label>
+        </div>
       </CardFooter>
     </Card>
   );

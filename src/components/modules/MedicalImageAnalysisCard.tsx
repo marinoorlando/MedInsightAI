@@ -7,11 +7,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { analyzeMedicalImage, type AnalyzeMedicalImageOutput } from '@/ai/flows/analyze-medical-image';
 import { fileToDataUri, getFileSize } from '@/lib/utils';
 import { addHistoryEvent } from '@/lib/db';
-import { Upload, Trash2, Loader2, ScanSearch, FileImage, Send } from 'lucide-react';
+import { Upload, Trash2, Loader2, ScanSearch, FileImage, Send, Save } from 'lucide-react';
 
 interface MedicalImageAnalysisCardProps {
   onAnalysisReady: (summary: string) => void;
@@ -25,6 +26,8 @@ export function MedicalImageAnalysisCard({ onAnalysisReady }: MedicalImageAnalys
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const [autoSaveToHistory, setAutoSaveToHistory] = useState(false);
+  const [hasSavedThisInteraction, setHasSavedThisInteraction] = useState(false);
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -44,6 +47,35 @@ export function MedicalImageAnalysisCard({ onAnalysisReady }: MedicalImageAnalys
       setPreviewUrl(URL.createObjectURL(file));
       setAnalysisResult(null);
       setError(null);
+      setHasSavedThisInteraction(false);
+    }
+  };
+
+  const saveToHistory = async () => {
+    if (!selectedFile || !analysisResult) return;
+    try {
+      await addHistoryEvent({
+        module: "Análisis de Imágenes Médicas",
+        action: "Imagen Analizada",
+        inputSummary: selectedFile.name,
+        outputSummary: analysisResult.summary || "No se generó resumen.",
+        details: {
+          fileName: selectedFile.name,
+          fileSize: getFileSize(selectedFile.size),
+          contentType: selectedFile.type,
+        }
+      });
+      toast({
+        title: "Guardado en Historial",
+        description: "El análisis de imagen ha sido guardado en el historial.",
+      });
+      setHasSavedThisInteraction(true);
+    } catch (err) {
+       toast({
+        title: "Error al Guardar",
+        description: "No se pudo guardar el análisis en el historial.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -60,6 +92,7 @@ export function MedicalImageAnalysisCard({ onAnalysisReady }: MedicalImageAnalys
     setIsLoading(true);
     setError(null);
     setAnalysisResult(null);
+    setHasSavedThisInteraction(false);
 
     try {
       const dataUri = await fileToDataUri(selectedFile);
@@ -70,17 +103,9 @@ export function MedicalImageAnalysisCard({ onAnalysisReady }: MedicalImageAnalys
         description: "La imagen médica ha sido analizada exitosamente.",
       });
 
-      await addHistoryEvent({
-        module: "Análisis de Imágenes Médicas",
-        action: "Imagen Analizada",
-        inputSummary: selectedFile.name, // Input completo
-        outputSummary: result.summary || "No se generó resumen.", // Output completo
-        details: { 
-          fileName: selectedFile.name, 
-          fileSize: getFileSize(selectedFile.size),
-          contentType: selectedFile.type,
-        }
-      });
+      if (autoSaveToHistory) {
+        await saveToHistory();
+      }
 
     } catch (err) {
       console.error("Error analyzing image:", err);
@@ -101,6 +126,7 @@ export function MedicalImageAnalysisCard({ onAnalysisReady }: MedicalImageAnalys
     setPreviewUrl(null);
     setAnalysisResult(null);
     setError(null);
+    setHasSavedThisInteraction(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -197,10 +223,24 @@ export function MedicalImageAnalysisCard({ onAnalysisReady }: MedicalImageAnalys
           </div>
         )}
       </CardContent>
-      <CardFooter>
+      <CardFooter className="flex flex-col gap-3">
         <Button onClick={handleAnalyze} disabled={!selectedFile || isLoading} className="w-full">
           <Upload className="mr-2 h-4 w-4" /> Analizar Imagen
         </Button>
+        {!autoSaveToHistory && analysisResult && !hasSavedThisInteraction && (
+          <Button onClick={saveToHistory} variant="outline" className="w-full" disabled={isLoading}>
+            <Save className="mr-2 h-4 w-4" /> Guardar en Historial
+          </Button>
+        )}
+        <div className="flex items-center space-x-2 self-start pt-2">
+          <Switch
+            id={`auto-save-image-${Date.now()}`} // Unique ID for label association
+            checked={autoSaveToHistory}
+            onCheckedChange={setAutoSaveToHistory}
+            disabled={isLoading}
+          />
+          <Label htmlFor={`auto-save-image-${Date.now()}`} className="text-sm">Guardado Automático en Historial</Label>
+        </div>
       </CardFooter>
     </Card>
   );

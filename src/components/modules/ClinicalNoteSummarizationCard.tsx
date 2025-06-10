@@ -6,10 +6,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { summarizeClinicalNotes, type SummarizeClinicalNotesOutput } from '@/ai/flows/summarize-clinical-notes';
 import { addHistoryEvent } from '@/lib/db';
-import { Loader2, ClipboardPenLine, Play, Trash2, Copy, SendToBack } from 'lucide-react';
+import { Loader2, ClipboardPenLine, Play, Trash2, Copy, SendToBack, Save } from 'lucide-react';
 
 interface ClinicalNoteSummarizationCardProps {
   initialText?: string;
@@ -23,14 +24,43 @@ export function ClinicalNoteSummarizationCard({ initialText, cardRef, onSummaryR
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  const [autoSaveToHistory, setAutoSaveToHistory] = useState(false);
+  const [hasSavedThisInteraction, setHasSavedThisInteraction] = useState(false);
 
   useEffect(() => {
     if (initialText) {
       setNotes(initialText);
-      // Ya no se resetean setSummaryResult(null) ni setError(null) aquí.
-      // El usuario debe presionar "Analizar Notas" explícitamente para procesar el nuevo texto.
+      // No resetear resultados ni errores, ni iniciar análisis automáticamente.
+      setHasSavedThisInteraction(false);
     }
   }, [initialText]);
+
+  const saveToHistory = async () => {
+    if (!summaryResult) return;
+    try {
+      await addHistoryEvent({
+        module: "Comprensión de Texto Clínico",
+        action: "Notas Resumidas",
+        inputSummary: notes, 
+        outputSummary: summaryResult.summary || "No se generó resumen.", 
+        details: { 
+          inputTextLength: notes.length, 
+          summaryTextLength: summaryResult.summary?.length || 0 
+        }
+      });
+      toast({
+        title: "Guardado en Historial",
+        description: "El resumen de notas ha sido guardado en el historial.",
+      });
+      setHasSavedThisInteraction(true);
+    } catch (err) {
+       toast({
+        title: "Error al Guardar",
+        description: "No se pudo guardar el resumen en el historial.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleAnalyze = async () => {
     if (!notes.trim()) {
@@ -44,7 +74,8 @@ export function ClinicalNoteSummarizationCard({ initialText, cardRef, onSummaryR
 
     setIsLoading(true);
     setError(null);
-    setSummaryResult(null); // Limpiar resultados anteriores antes de un nuevo análisis
+    setSummaryResult(null); 
+    setHasSavedThisInteraction(false);
 
     try {
       const result = await summarizeClinicalNotes({ clinicalNotes: notes });
@@ -54,16 +85,9 @@ export function ClinicalNoteSummarizationCard({ initialText, cardRef, onSummaryR
         description: "El resumen de las notas clínicas ha sido generado exitosamente.",
       });
 
-      await addHistoryEvent({
-        module: "Comprensión de Texto Clínico",
-        action: "Notas Resumidas",
-        inputSummary: notes, 
-        outputSummary: result.summary || "No se generó resumen.", 
-        details: { 
-          inputTextLength: notes.length, 
-          summaryTextLength: result.summary?.length || 0 
-        }
-      });
+      if (autoSaveToHistory) {
+        await saveToHistory();
+      }
 
     } catch (err) {
       console.error("Error summarizing notes:", err);
@@ -83,6 +107,7 @@ export function ClinicalNoteSummarizationCard({ initialText, cardRef, onSummaryR
     setNotes("");
     setSummaryResult(null);
     setError(null);
+    setHasSavedThisInteraction(false);
   };
 
   const handleCopySummary = () => {
@@ -122,7 +147,10 @@ export function ClinicalNoteSummarizationCard({ initialText, cardRef, onSummaryR
           <Textarea
             id="clinical-notes"
             value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            onChange={(e) => {
+              setNotes(e.target.value);
+              setHasSavedThisInteraction(false); // Si el texto cambia, la interacción guardada ya no es válida
+            }}
             placeholder="Ingresa aquí las notas clínicas, historial del paciente o utiliza texto extraído de un PDF o análisis de imagen..."
             rows={8}
             className="min-h-[150px]"
@@ -164,13 +192,29 @@ export function ClinicalNoteSummarizationCard({ initialText, cardRef, onSummaryR
           </div>
         )}
       </CardContent>
-      <CardFooter className="flex flex-col sm:flex-row gap-2">
-        <Button onClick={handleAnalyze} disabled={!notes.trim() || isLoading} className="w-full sm:w-auto flex-grow">
-          <Play className="mr-2 h-4 w-4" /> Analizar Notas
-        </Button>
-        <Button variant="outline" onClick={handleClear} disabled={isLoading} className="w-full sm:w-auto">
-          <Trash2 className="mr-2 h-4 w-4" /> Limpiar Notas
-        </Button>
+      <CardFooter className="flex flex-col gap-3">
+        <div className="w-full flex flex-col sm:flex-row gap-2">
+            <Button onClick={handleAnalyze} disabled={!notes.trim() || isLoading} className="w-full sm:w-auto flex-grow">
+            <Play className="mr-2 h-4 w-4" /> Analizar Notas
+            </Button>
+            <Button variant="outline" onClick={handleClear} disabled={isLoading} className="w-full sm:w-auto">
+            <Trash2 className="mr-2 h-4 w-4" /> Limpiar Notas
+            </Button>
+        </div>
+        {!autoSaveToHistory && summaryResult && !hasSavedThisInteraction && (
+            <Button onClick={saveToHistory} variant="outline" className="w-full" disabled={isLoading}>
+                <Save className="mr-2 h-4 w-4" /> Guardar en Historial
+            </Button>
+        )}
+        <div className="flex items-center space-x-2 self-start pt-2">
+          <Switch
+            id={`auto-save-notes-${Date.now()}`}
+            checked={autoSaveToHistory}
+            onCheckedChange={setAutoSaveToHistory}
+            disabled={isLoading}
+          />
+          <Label htmlFor={`auto-save-notes-${Date.now()}`} className="text-sm">Guardado Automático en Historial</Label>
+        </div>
       </CardFooter>
     </Card>
   );
