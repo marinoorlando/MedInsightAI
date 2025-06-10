@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { db, clearHistory, getAllHistoryEvents, importHistory, type HistoryEvent } from '@/lib/db';
-import { History, Trash2, ListChecks, FileText, Brain, ScanSearch, MessageSquareText, UploadCloud, DownloadCloud, AlertTriangle } from 'lucide-react';
+import { History, Trash2, ListChecks, FileText, Brain, ScanSearch, MessageSquareText, UploadCloud, DownloadCloud } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
@@ -174,14 +174,20 @@ export function HistoryLogCard() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {(!historyEvents || historyEvents.length === 0) && (
+          {(!historyEvents || historyEvents.length === 0) && !isImporting && (
             <div className="text-center py-8 text-muted-foreground">
               <ListChecks className="h-12 w-12 mx-auto mb-4 text-gray-400" />
               <p>No hay eventos en el historial todavía.</p>
               <p className="text-sm">Realiza un análisis para ver el registro aquí.</p>
             </div>
           )}
-          {historyEvents && historyEvents.length > 0 && (
+          {isImporting && (
+             <div className="text-center py-8 text-muted-foreground">
+              <UploadCloud className="h-12 w-12 mx-auto mb-4 text-primary animate-pulse" />
+              <p>Importando eventos del historial...</p>
+            </div>
+          )}
+          {historyEvents && historyEvents.length > 0 && !isImporting && (
             <ScrollArea className="h-[400px] pr-4">
               <div className="space-y-4">
                 {historyEvents.map((event) => (
@@ -207,8 +213,8 @@ export function HistoryLogCard() {
                     )}
                      {event.details && Object.keys(event.details).length > 0 && (
                         <details className="text-xs mt-1">
-                            <summary className="cursor-pointer text-muted-foreground hover:text-foreground">Detalles</summary>
-                            <pre className="mt-1 p-2 bg-muted/50 rounded text-xs overflow-auto max-h-32">
+                            <summary className="cursor-pointer text-muted-foreground hover:text-foreground">Mostrar/Ocultar Detalles</summary>
+                            <pre className="mt-1 p-2 bg-muted/50 rounded text-xs overflow-auto max-h-48">
                                 {JSON.stringify(event.details, null, 2)}
                             </pre>
                         </details>
@@ -219,10 +225,10 @@ export function HistoryLogCard() {
             </ScrollArea>
           )}
         </CardContent>
-        {historyEvents && historyEvents.length > 0 && (
+        {historyEvents && historyEvents.length > 0 && !isImporting &&(
           <CardFooter>
-            <Button variant="outline" onClick={handleClearHistory} className="w-full" disabled={isImporting}>
-              <Trash2 className="mr-2 h-4 w-4" /> Limpiar Historial
+            <Button variant="destructive" onClick={handleClearHistory} className="w-full">
+              <Trash2 className="mr-2 h-4 w-4" /> Limpiar Todo el Historial
             </Button>
           </CardFooter>
         )}
@@ -234,15 +240,16 @@ export function HistoryLogCard() {
             <AlertDialogTitle>Confirmar Importación de Historial</AlertDialogTitle>
             <AlertDialogDescription>
               Ha seleccionado un archivo para importar ({eventsToImport.length} evento(s)). ¿Cómo desea importar estos eventos?
+              Al reemplazar, se eliminará permanentemente el historial actual.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="gap-2 sm:gap-0">
             <AlertDialogCancel onClick={() => setEventsToImport([])}>Cancelar</AlertDialogCancel>
             <Button variant="outline" onClick={() => confirmImport('append')}>
               Añadir al Historial Actual
             </Button>
             <Button variant="destructive" onClick={() => confirmImport('replace')}>
-              Reemplazar Historial Actual
+             Reemplazar Historial Actual
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
