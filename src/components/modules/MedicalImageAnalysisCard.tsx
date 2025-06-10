@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useRef, type ChangeEvent } from 'react';
@@ -9,9 +10,13 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { analyzeMedicalImage, type AnalyzeMedicalImageOutput } from '@/ai/flows/analyze-medical-image';
 import { fileToDataUri, getFileSize } from '@/lib/utils';
-import { Upload, Trash2, Loader2, ScanSearch, FileImage } from 'lucide-react';
+import { Upload, Trash2, Loader2, ScanSearch, FileImage, Send } from 'lucide-react';
 
-export function MedicalImageAnalysisCard() {
+interface MedicalImageAnalysisCardProps {
+  onAnalysisReady: (summary: string) => void;
+}
+
+export function MedicalImageAnalysisCard({ onAnalysisReady }: MedicalImageAnalysisCardProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalyzeMedicalImageOutput | null>(null);
@@ -84,6 +89,13 @@ export function MedicalImageAnalysisCard() {
     setError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
+    }
+  };
+
+  const handleSendAnalysisToSummarization = () => {
+    if (analysisResult?.summary) {
+      onAnalysisReady(analysisResult.summary);
+      toast({ title: "Análisis Enviado", description: "El resumen del análisis ha sido enviado a Comprensión de Texto Clínico." });
     }
   };
 
@@ -160,6 +172,14 @@ export function MedicalImageAnalysisCard() {
           <div className="mt-4 p-4 border rounded-md bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700">
             <h4 className="font-semibold text-lg mb-2 text-green-700 dark:text-green-300">Resumen del Análisis</h4>
             <p className="text-sm whitespace-pre-wrap">{analysisResult.summary}</p>
+            <Button 
+              onClick={handleSendAnalysisToSummarization} 
+              variant="outline" 
+              className="w-full mt-3"
+              disabled={!analysisResult.summary}
+            >
+              <Send className="mr-2 h-4 w-4" /> Usar Análisis para Notas Clínicas
+            </Button>
           </div>
         )}
       </CardContent>

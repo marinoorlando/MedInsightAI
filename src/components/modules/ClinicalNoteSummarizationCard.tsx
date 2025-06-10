@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, type RefObject } from 'react';
@@ -10,25 +11,25 @@ import { summarizeClinicalNotes, type SummarizeClinicalNotesOutput } from '@/ai/
 import { Loader2, ClipboardPenLine, Play, Trash2, Copy, SendToBack } from 'lucide-react';
 
 interface ClinicalNoteSummarizationCardProps {
-  initialNotes?: string;
+  initialText?: string;
   cardRef: RefObject<HTMLDivElement>;
   onSummaryReadyForDiagnosis: (summary: string) => void;
 }
 
-export function ClinicalNoteSummarizationCard({ initialNotes, cardRef, onSummaryReadyForDiagnosis }: ClinicalNoteSummarizationCardProps) {
-  const [notes, setNotes] = useState(initialNotes || "");
+export function ClinicalNoteSummarizationCard({ initialText, cardRef, onSummaryReadyForDiagnosis }: ClinicalNoteSummarizationCardProps) {
+  const [notes, setNotes] = useState(initialText || "");
   const [summaryResult, setSummaryResult] = useState<SummarizeClinicalNotesOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    if (initialNotes) {
-      setNotes(initialNotes);
+    if (initialText) {
+      setNotes(initialText);
       setSummaryResult(null); 
       setError(null);
     }
-  }, [initialNotes]);
+  }, [initialText]);
 
   const handleAnalyze = async () => {
     if (!notes.trim()) {
@@ -99,7 +100,7 @@ export function ClinicalNoteSummarizationCard({ initialNotes, cardRef, onSummary
           <CardTitle className="font-headline text-xl">Comprensión de Texto Clínico</CardTitle>
         </div>
         <CardDescription>
-          Ingresa notas clínicas o usa las extraídas de un PDF para generar un resumen con la información clave.
+          Ingresa notas clínicas, historial del paciente o el resultado de un análisis de imagen para generar un resumen con la información clave.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -109,7 +110,7 @@ export function ClinicalNoteSummarizationCard({ initialNotes, cardRef, onSummary
             id="clinical-notes"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Ingresa aquí las notas clínicas del paciente o utiliza las notas extraídas de un PDF..."
+            placeholder="Ingresa aquí las notas clínicas, historial del paciente o utiliza texto extraído de un PDF o análisis de imagen..."
             rows={8}
             className="min-h-[150px]"
             disabled={isLoading}

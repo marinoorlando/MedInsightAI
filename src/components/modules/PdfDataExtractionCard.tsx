@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useRef, type ChangeEvent, type RefObject } from 'react';
@@ -12,11 +13,10 @@ import { fileToDataUri, getFileSize } from '@/lib/utils';
 import { Upload, Trash2, Loader2, FileText, Send } from 'lucide-react';
 
 interface PdfDataExtractionCardProps {
-  onNotesExtracted: (notes: string, elementRef: RefObject<HTMLDivElement>) => void;
-  cardRef: RefObject<HTMLDivElement>;
+  onTextExtracted: (notes: string) => void;
 }
 
-export function PdfDataExtractionCard({ onNotesExtracted, cardRef }: PdfDataExtractionCardProps) {
+export function PdfDataExtractionCard({ onTextExtracted }: PdfDataExtractionCardProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [extractionResult, setExtractionResult] = useState<ExtractInformationFromPdfOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -90,7 +90,7 @@ export function PdfDataExtractionCard({ onNotesExtracted, cardRef }: PdfDataExtr
 
   const handleSendNotes = () => {
     if (extractionResult?.clinicalNotes) {
-      onNotesExtracted(extractionResult.clinicalNotes, cardRef);
+      onTextExtracted(extractionResult.clinicalNotes);
       toast({ title: "Notas enviadas", description: "Las notas clínicas han sido enviadas al módulo de resumen." });
     }
   };
@@ -111,7 +111,7 @@ export function PdfDataExtractionCard({ onNotesExtracted, cardRef }: PdfDataExtr
 
 
   return (
-    <Card ref={cardRef} className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+    <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
       <CardHeader>
         <div className="flex items-center gap-3 mb-2">
           <FileText className="h-8 w-8 text-primary" />

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useRef } from 'react';
@@ -9,16 +10,15 @@ import { ClinicalNoteSummarizationCard } from '@/components/modules/ClinicalNote
 import { DiagnosisSuggestionCard } from '@/components/modules/DiagnosisSuggestionCard';
 
 export default function HomePage() {
-  const [extractedNotes, setExtractedNotes] = useState<string | undefined>(undefined);
+  const [textForSummarization, setTextForSummarization] = useState<string | undefined>(undefined);
   const [summaryForDiagnosis, setSummaryForDiagnosis] = useState<string | undefined>(undefined);
 
   const summarizationCardRef = useRef<HTMLDivElement>(null);
-  const pdfExtractionCardRef = useRef<HTMLDivElement>(null);
   const diagnosisCardRef = useRef<HTMLDivElement>(null);
 
 
-  const handleNotesExtracted = (notes: string, elementRefToScrollFrom?: React.RefObject<HTMLDivElement>) => {
-    setExtractedNotes(notes);
+  const handleTextReadyForSummarization = (text: string) => {
+    setTextForSummarization(text);
     setTimeout(() => {
         summarizationCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 100);
@@ -36,13 +36,14 @@ export default function HomePage() {
       <Header />
       <main className="flex-grow container mx-auto p-4 md:p-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
-          <MedicalImageAnalysisCard />
+          <MedicalImageAnalysisCard 
+            onAnalysisReady={handleTextReadyForSummarization}
+          />
           <PdfDataExtractionCard 
-            onNotesExtracted={handleNotesExtracted} 
-            cardRef={pdfExtractionCardRef} 
+            onTextExtracted={handleTextReadyForSummarization} 
           />
           <ClinicalNoteSummarizationCard 
-            initialNotes={extractedNotes} 
+            initialText={textForSummarization} 
             cardRef={summarizationCardRef}
             onSummaryReadyForDiagnosis={handleSummaryReadyForDiagnosis}
           />
