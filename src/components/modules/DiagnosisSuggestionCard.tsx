@@ -8,11 +8,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox"; // Importar Checkbox
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { suggestDiagnosis, type SuggestDiagnosisOutput } from '@/ai/flows/suggest-diagnosis';
 import { addHistoryEvent } from '@/lib/db';
-import { Loader2, Brain, Lightbulb, Trash2, Star } from 'lucide-react'; // Importar Star
+import { Loader2, Brain, Lightbulb, Trash2, Star } from 'lucide-react';
 
 interface DiagnosisSuggestionCardProps {
   initialClinicalData?: string;
@@ -32,10 +32,10 @@ export function DiagnosisSuggestionCard({ initialClinicalData, cardRef }: Diagno
   useEffect(() => {
     if (initialClinicalData) {
       setClinicalData(initialClinicalData);
-      setDiagnosisResult(null); 
-      setError(null);
-      setSelectedPrincipalCode(null);
-      setConfirmedDiagnoses(new Set());
+      // Ya no se resetean los otros estados aquí (diagnosisResult, error, etc.).
+      // El usuario debe presionar "Sugerir Diagnósticos" explícitamente
+      // para obtener nuevas sugerencias basadas en el nuevo clinicalData.
+      // Los resultados anteriores, si los hay, permanecerán.
     }
   }, [initialClinicalData]);
 
@@ -51,9 +51,9 @@ export function DiagnosisSuggestionCard({ initialClinicalData, cardRef }: Diagno
 
     setIsLoading(true);
     setError(null);
-    setDiagnosisResult(null);
-    setSelectedPrincipalCode(null);
-    setConfirmedDiagnoses(new Set());
+    setDiagnosisResult(null); // Limpiar resultados anteriores antes de una nueva sugerencia
+    setSelectedPrincipalCode(null); // Limpiar selección de principal
+    setConfirmedDiagnoses(new Set()); // Limpiar confirmaciones
 
     try {
       const result = await suggestDiagnosis({ clinicalData });
@@ -115,7 +115,7 @@ export function DiagnosisSuggestionCard({ initialClinicalData, cardRef }: Diagno
   };
 
   const handleSetPrincipal = (code: string) => {
-    setSelectedPrincipalCode(current => current === code ? null : code); // Permite deseleccionar si se hace clic de nuevo
+    setSelectedPrincipalCode(current => current === code ? null : code); 
   };
 
   const handleToggleConfirmed = (code: string) => {

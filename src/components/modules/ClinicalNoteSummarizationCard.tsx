@@ -27,8 +27,8 @@ export function ClinicalNoteSummarizationCard({ initialText, cardRef, onSummaryR
   useEffect(() => {
     if (initialText) {
       setNotes(initialText);
-      setSummaryResult(null); 
-      setError(null);
+      // Ya no se resetean setSummaryResult(null) ni setError(null) aquí.
+      // El usuario debe presionar "Analizar Notas" explícitamente para procesar el nuevo texto.
     }
   }, [initialText]);
 
@@ -44,7 +44,7 @@ export function ClinicalNoteSummarizationCard({ initialText, cardRef, onSummaryR
 
     setIsLoading(true);
     setError(null);
-    setSummaryResult(null);
+    setSummaryResult(null); // Limpiar resultados anteriores antes de un nuevo análisis
 
     try {
       const result = await summarizeClinicalNotes({ clinicalNotes: notes });
@@ -57,8 +57,8 @@ export function ClinicalNoteSummarizationCard({ initialText, cardRef, onSummaryR
       await addHistoryEvent({
         module: "Comprensión de Texto Clínico",
         action: "Notas Resumidas",
-        inputSummary: notes, // Input completo
-        outputSummary: result.summary || "No se generó resumen.", // Output completo
+        inputSummary: notes, 
+        outputSummary: result.summary || "No se generó resumen.", 
         details: { 
           inputTextLength: notes.length, 
           summaryTextLength: result.summary?.length || 0 
