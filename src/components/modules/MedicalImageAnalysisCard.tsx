@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useRef, type ChangeEvent } from 'react';
+import { useState, useRef, type ChangeEvent, useId } from 'react';
 import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ export function MedicalImageAnalysisCard({ onAnalysisReady }: MedicalImageAnalys
   const { toast } = useToast();
   const [autoSaveToHistory, setAutoSaveToHistory] = useState(false);
   const [hasSavedThisInteraction, setHasSavedThisInteraction] = useState(false);
+  const autoSaveSwitchId = useId();
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -234,12 +235,12 @@ export function MedicalImageAnalysisCard({ onAnalysisReady }: MedicalImageAnalys
         )}
         <div className="flex items-center space-x-2 self-start pt-2">
           <Switch
-            id={`auto-save-image-${Date.now()}`} // Unique ID for label association
+            id={autoSaveSwitchId}
             checked={autoSaveToHistory}
             onCheckedChange={setAutoSaveToHistory}
             disabled={isLoading}
           />
-          <Label htmlFor={`auto-save-image-${Date.now()}`} className="text-sm">Guardado Automático en Historial</Label>
+          <Label htmlFor={autoSaveSwitchId} className="text-sm">Guardado Automático en Historial</Label>
         </div>
       </CardFooter>
     </Card>

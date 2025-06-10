@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useRef, type ChangeEvent } from 'react';
+import { useState, useRef, type ChangeEvent, useId } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,7 @@ export function PdfDataExtractionCard({ onTextExtracted }: PdfDataExtractionCard
   const { toast } = useToast();
   const [autoSaveToHistory, setAutoSaveToHistory] = useState(false);
   const [hasSavedThisInteraction, setHasSavedThisInteraction] = useState(false);
+  const autoSaveSwitchId = useId();
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -237,12 +238,12 @@ export function PdfDataExtractionCard({ onTextExtracted }: PdfDataExtractionCard
         )}
         <div className="flex items-center space-x-2 self-start pt-2">
           <Switch
-            id={`auto-save-pdf-${Date.now()}`}
+            id={autoSaveSwitchId}
             checked={autoSaveToHistory}
             onCheckedChange={setAutoSaveToHistory}
             disabled={isLoading}
           />
-          <Label htmlFor={`auto-save-pdf-${Date.now()}`} className="text-sm">Guardado Automático en Historial</Label>
+          <Label htmlFor={autoSaveSwitchId} className="text-sm">Guardado Automático en Historial</Label>
         </div>
       </CardFooter>
     </Card>

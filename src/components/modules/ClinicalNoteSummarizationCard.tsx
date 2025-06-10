@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, type RefObject } from 'react';
+import { useState, useEffect, type RefObject, useId } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,6 +26,7 @@ export function ClinicalNoteSummarizationCard({ initialText, cardRef, onSummaryR
   const { toast } = useToast();
   const [autoSaveToHistory, setAutoSaveToHistory] = useState(false);
   const [hasSavedThisInteraction, setHasSavedThisInteraction] = useState(false);
+  const autoSaveSwitchId = useId();
 
   useEffect(() => {
     if (initialText) {
@@ -208,12 +209,12 @@ export function ClinicalNoteSummarizationCard({ initialText, cardRef, onSummaryR
         )}
         <div className="flex items-center space-x-2 self-start pt-2">
           <Switch
-            id={`auto-save-notes-${Date.now()}`}
+            id={autoSaveSwitchId}
             checked={autoSaveToHistory}
             onCheckedChange={setAutoSaveToHistory}
             disabled={isLoading}
           />
-          <Label htmlFor={`auto-save-notes-${Date.now()}`} className="text-sm">Guardado Automático en Historial</Label>
+          <Label htmlFor={autoSaveSwitchId} className="text-sm">Guardado Automático en Historial</Label>
         </div>
       </CardFooter>
     </Card>
