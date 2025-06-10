@@ -35,6 +35,14 @@ export default function HomePage() {
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
       <main className="flex-grow container mx-auto p-4 md:p-8">
+        <div className="text-center mb-8 md:mb-12">
+          <h2 className="text-3xl md:text-4xl font-bold text-primary mb-3 font-headline">
+            Inteligencia Clínica Potenciada por IA
+          </h2>
+          <p className="text-base md:text-lg text-muted-foreground max-w-3xl mx-auto">
+            Utilice IA avanzada para analizar datos médicos, extraer información y apoyar los procesos de diagnóstico de manera eficiente y segura.
+          </p>
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
           <MedicalImageAnalysisCard 
             onAnalysisReady={handleTextReadyForSummarization}
