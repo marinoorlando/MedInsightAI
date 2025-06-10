@@ -4,12 +4,12 @@
 import { useRef, useState, type ChangeEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Button, buttonVariants } from "@/components/ui/button"; // Added buttonVariants
+import { Button, buttonVariants } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { db, clearHistory, getAllHistoryEvents, importHistory, type HistoryEvent, deleteHistoryEvent } from '@/lib/db';
-import { History, Trash2, ListChecks, FileText, Brain, ScanSearch, MessageSquareText, UploadCloud, DownloadCloud, AlertTriangle } from 'lucide-react';
+import { History, Trash2, ListChecks, FileText, Brain, ScanSearch, MessageSquareText, UploadCloud, DownloadCloud } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
@@ -224,12 +224,12 @@ export function HistoryLogCard() {
     <>
       <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 col-span-1 lg:col-span-2">
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 mb-2">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-3 mb-2 sm:mb-0">
               <History className="h-8 w-8 text-primary" />
               <CardTitle className="font-headline text-xl">Historial de Actividad</CardTitle>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" onClick={() => importFileRef.current?.click()} disabled={isImporting}>
                 <UploadCloud className="mr-2 h-4 w-4" /> {isImporting ? "Importando..." : "Importar"}
               </Button>
@@ -237,9 +237,30 @@ export function HistoryLogCard() {
               <Button variant="outline" size="sm" onClick={handleExportHistory} disabled={!historyEvents || historyEvents.length === 0}>
                 <DownloadCloud className="mr-2 h-4 w-4" /> Exportar
               </Button>
+              {historyEvents && historyEvents.length > 0 && !isImporting &&(
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm">
+                      <Trash2 className="mr-2 h-4 w-4" /> Limpiar Todo
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>¿Estás seguro de que deseas limpiar todo el historial?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Esta acción no se puede deshacer. Se eliminarán permanentemente todos los eventos del historial.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleClearHistory}>Sí, Limpiar Historial</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
             </div>
           </div>
-          <CardDescription>
+          <CardDescription className="mt-2">
             Registro de las acciones y análisis realizados en la plataforma. Puede importar y exportar el historial.
           </CardDescription>
         </CardHeader>
@@ -264,7 +285,7 @@ export function HistoryLogCard() {
                   <details key={event.id} className="p-3 border rounded-md bg-card/50 shadow-sm group relative">
                     <summary className="cursor-pointer list-none">
                       <div className="flex justify-between items-start mb-1">
-                        <div className="flex items-center flex-grow">
+                        <div className="flex items-center flex-grow mr-2">
                           {getModuleIcon(event.module)}
                           <span className="font-semibold text-sm mr-2">{event.module} - {event.action}</span>
                         </div>
@@ -357,29 +378,7 @@ export function HistoryLogCard() {
             </ScrollArea>
           )}
         </CardContent>
-        {historyEvents && historyEvents.length > 0 && !isImporting &&(
-          <CardFooter>
-             <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" className="w-full">
-                  <Trash2 className="mr-2 h-4 w-4" /> Limpiar Todo el Historial
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>¿Estás seguro de que deseas limpiar todo el historial?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Esta acción no se puede deshacer. Se eliminarán permanentemente todos los eventos del historial.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleClearHistory}>Sí, Limpiar Historial</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </CardFooter>
-        )}
+        {/* CardFooter ya no es necesario para el botón de limpiar historial */}
       </Card>
 
       <AlertDialog open={showImportConfirmDialog} onOpenChange={setShowImportConfirmDialog}>
