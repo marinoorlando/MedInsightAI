@@ -52,6 +52,15 @@ export async function clearHistory() {
   }
 }
 
+export async function deleteHistoryEvent(eventId: number): Promise<void> {
+  try {
+    await db.historyEvents.delete(eventId);
+  } catch (error) {
+    console.error(`Failed to delete history event with id ${eventId}:`, error);
+    throw error;
+  }
+}
+
 export async function importHistory(events: Partial<HistoryEvent>[], mode: 'replace' | 'append'): Promise<void> {
   try {
     const eventsToImport = events.map(event => ({
@@ -69,3 +78,4 @@ export async function importHistory(events: Partial<HistoryEvent>[], mode: 'repl
     throw error; // Re-throw to be caught by the calling function for user notification
   }
 }
+

@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { db, clearHistory, getAllHistoryEvents, importHistory, type HistoryEvent } from '@/lib/db';
-import { History, Trash2, ListChecks, FileText, Brain, ScanSearch, MessageSquareText, UploadCloud, DownloadCloud } from 'lucide-react';
+import { db, clearHistory, getAllHistoryEvents, importHistory, type HistoryEvent, deleteHistoryEvent } from '@/lib/db';
+import { History, Trash2, ListChecks, FileText, Brain, ScanSearch, MessageSquareText, UploadCloud, DownloadCloud, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
@@ -23,6 +23,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
 const truncateTextForDisplay = (text: string | undefined, maxLength: number = 100): string => {
@@ -61,6 +62,7 @@ export function HistoryLogCard() {
   const [isImporting, setIsImporting] = useState(false);
   const [showImportConfirmDialog, setShowImportConfirmDialog] = useState(false);
   const [eventsToImport, setEventsToImport] = useState<Partial<HistoryEvent>[]>([]);
+  const [eventToDelete, setEventToDelete] = useState<HistoryEvent | null>(null);
 
   const handleClearHistory = async () => {
     await clearHistory();
@@ -69,6 +71,30 @@ export function HistoryLogCard() {
       description: "Se han eliminado todos los eventos del historial.",
     });
   };
+
+  const handleInitiateDeleteEvent = (event: HistoryEvent) => {
+    setEventToDelete(event);
+  };
+
+  const confirmDeleteEvent = async () => {
+    if (!eventToDelete || !eventToDelete.id) return;
+    try {
+      await deleteHistoryEvent(eventToDelete.id);
+      toast({
+        title: "Evento Eliminado",
+        description: "El evento ha sido eliminado del historial.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error al Eliminar",
+        description: "No se pudo eliminar el evento del historial.",
+        variant: "destructive",
+      });
+    } finally {
+      setEventToDelete(null);
+    }
+  };
+
 
   const handleExportHistory = async () => {
     const events = await getAllHistoryEvents();
@@ -165,12 +191,12 @@ export function HistoryLogCard() {
     const detailsToRender: Record<string, any> = { ...event.details };
 
     if (event.module === "Análisis de Imágenes Médicas" || event.module === "Extracción de Datos de PDF") {
-      delete detailsToRender.fileName; // Already in inputSummary
+      delete detailsToRender.fileName; 
       delete detailsToRender.fileSize;
       delete detailsToRender.contentType;
     }
     if (event.module === "Diagnóstico Inteligente") {
-      delete detailsToRender.suggestions; // Rendered as table
+      delete detailsToRender.suggestions; 
       delete detailsToRender.inputTextLength;
     }
      if (event.module === "Comprensión de Texto Clínico") {
@@ -235,16 +261,33 @@ export function HistoryLogCard() {
             <ScrollArea className="h-[400px] pr-4">
               <div className="space-y-4">
                 {historyEvents.map((event) => (
-                  <details key={event.id} className="p-3 border rounded-md bg-card/50 shadow-sm group">
+                  <details key={event.id} className="p-3 border rounded-md bg-card/50 shadow-sm group relative">
                     <summary className="cursor-pointer list-none">
                       <div className="flex justify-between items-start mb-1">
-                        <div className="flex items-center">
+                        <div className="flex items-center flex-grow">
                           {getModuleIcon(event.module)}
-                          <span className="font-semibold text-sm">{event.module} - {event.action}</span>
+                          <span className="font-semibold text-sm mr-2">{event.module} - {event.action}</span>
                         </div>
-                        <Badge variant="outline" className="text-xs">
-                          {format(new Date(event.timestamp), "dd MMM yyyy, HH:mm:ss", { locale: es })}
-                        </Badge>
+                        <div className="flex items-center flex-shrink-0">
+                          <Badge variant="outline" className="text-xs mr-2">
+                            {format(new Date(event.timestamp), "dd MMM yyyy, HH:mm:ss", { locale: es })}
+                          </Badge>
+                          {event.id && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                  onClick={(e) => {e.stopPropagation(); handleInitiateDeleteEvent(event)}}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  <span className="sr-only">Eliminar evento</span>
+                                </Button>
+                              </AlertDialogTrigger>
+                            </AlertDialog>
+                          )}
+                        </div>
                       </div>
                       {event.inputSummary && (
                         <p className="text-xs text-muted-foreground">
@@ -316,9 +359,25 @@ export function HistoryLogCard() {
         </CardContent>
         {historyEvents && historyEvents.length > 0 && !isImporting &&(
           <CardFooter>
-            <Button variant="destructive" onClick={handleClearHistory} className="w-full">
-              <Trash2 className="mr-2 h-4 w-4" /> Limpiar Todo el Historial
-            </Button>
+             <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" className="w-full">
+                  <Trash2 className="mr-2 h-4 w-4" /> Limpiar Todo el Historial
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>¿Estás seguro de que deseas limpiar todo el historial?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta acción no se puede deshacer. Se eliminarán permanentemente todos los eventos del historial.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleClearHistory}>Sí, Limpiar Historial</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </CardFooter>
         )}
       </Card>
@@ -343,6 +402,31 @@ export function HistoryLogCard() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {eventToDelete && (
+         <AlertDialog open={!!eventToDelete} onOpenChange={(open) => !open && setEventToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Eliminar este evento del historial?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Estás a punto de eliminar el evento: <br />
+                <span className="font-semibold">{eventToDelete.module} - {eventToDelete.action}</span> <br />
+                <span className="text-xs text-muted-foreground">
+                  {format(new Date(eventToDelete.timestamp), "dd MMM yyyy, HH:mm:ss", { locale: es })}
+                </span>
+                <br />
+                Esta acción no se puede deshacer.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setEventToDelete(null)}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDeleteEvent} className={buttonVariants({ variant: "destructive" })}>
+                Sí, Eliminar Evento
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </>
   );
 }
